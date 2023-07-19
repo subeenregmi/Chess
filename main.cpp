@@ -1,4 +1,5 @@
 #include <SFML/Graphics.hpp>
+#include <SFML/Audio.hpp>
 #include <iostream>
 
 /*
@@ -514,6 +515,8 @@ int main()
 	Piece* PieceHeldDown = nullptr;
 	Square* SquareStart = nullptr;
 	Square* LastPiecePressed = nullptr;
+	sf::SoundBuffer ChessPieceMove;
+	sf::SoundBuffer ChessPieceCapture;
 	int LastIndex[2] = {-1, -1};
 	int Index[2] = {0, 0};
 
@@ -521,6 +524,8 @@ int main()
 	sf::Texture ChessPiecesT;
 	sf::Texture BoardT;
 	sf::Texture CircleT;
+	sf::Sound pieceMoveSound;
+	sf::Sound pieceCaptureSound;
 	Game G;
 	G.makeBoard();
 	while (window.isOpen()){
@@ -528,6 +533,10 @@ int main()
 		ChessPiecesT.loadFromFile("textures/chess_pieces.png");
 		BoardT.loadFromFile("textures/more.png");
 		CircleT.loadFromFile("textures/greycircle.png");
+		ChessPieceMove.loadFromFile("audio/chessmove.wav");
+		ChessPieceCapture.loadFromFile("audio/chesscapture.wav");
+		pieceMoveSound.setBuffer(ChessPieceMove);
+		pieceCaptureSound.setBuffer(ChessPieceCapture);
 		ChessPiecesT.setSmooth(true);
 		CircleT.setSmooth(true);
 
@@ -618,6 +627,7 @@ int main()
 					continue;
 				}
 
+				bool capture = false;
 				if(S->getPieceInSquare() != nullptr){
 					if(S->getPieceInSquare()->getColour() == PieceHeldDown->getColour()){
 						PieceHeldDown->getSprite()->setPosition(sf::Vector2f(117*(Index[0]/116) + 45, 117*(Index[1]/116) + 40));	
@@ -631,10 +641,17 @@ int main()
 					cout << "Deleting, " << S->getPieceInSquare()->getType() << endl;
 					delete S->getPieceInSquare()->getSprite();
 					delete S->getPieceInSquare();
+					capture = true;
 					S->removePiece();
 				}
 
 				PieceHeldDown->getSprite()->setPosition(sf::Vector2f(117*(x/116) + 45, 117*(y/116) + 40));	
+				if(capture){
+					pieceCaptureSound.play();
+				}
+				else{
+					pieceMoveSound.play();	
+				}
 				if(PieceHeldDown->getType() == "pawn"){
 					PieceHeldDown->setMovedOnce();
 				}
