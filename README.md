@@ -1,1 +1,5 @@
-Chess implemented in C++ using SFML
+Chess implemented in C++ 
+
+Requirements
+------------
+*   SFML
