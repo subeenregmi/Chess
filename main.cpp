@@ -100,7 +100,12 @@ class Square{
 
 		void setPiece(Piece* P){
 			pPiece = P;
-			PieceInSquare = true;
+			if(P == nullptr){
+				PieceInSquare = false;
+			}
+			else{
+				PieceInSquare = true;
+			}
 		}
 
 		Piece* getPieceInSquare(){
@@ -309,14 +314,9 @@ class Game{
 		bool isInCheck(){
 			bool white = false;
 			if(CurrentPlayer == 1){
-				cout << "IS WHITE" << endl;
 				white = true;
 			}
-			else{
-				cout << "Is black" << endl;
-			}
 			if(findPiece("king", CurrentPlayer) == -1){
-				cout << "king is gone" << endl;
 				return false;
 			}
 			int EnemyKing[2] = {findPiece("king", CurrentPlayer) / 10, findPiece("king", CurrentPlayer) % 10};
@@ -338,11 +338,27 @@ class Game{
 		}
 
 		bool wouldBeInCheck(int startIndex[2], int finishIndex[2]){
-			return false;
+			Piece* P1 = Board[startIndex[0]][startIndex[1]].getPieceInSquare();
+			Piece* P2 = Board[finishIndex[0]][finishIndex[1]].getPieceInSquare();
+
+			Board[startIndex[0]][startIndex[1]].setPiece(nullptr);
+			Board[finishIndex[0]][finishIndex[1]].setPiece(P1);
+
+			bool Check = isInCheck();
+
+			Board[startIndex[0]][startIndex[1]].setPiece(P1);
+			Board[finishIndex[0]][finishIndex[1]].setPiece(P2);
+
+			return Check;
+		}
+
+		bool isInCheckMate(){
+			if(!isInCheck()){
+				
+			}
 		}
 
 		bool isValidMove(int startIndex[2], int finishIndex[2], Piece* P){
-			bool isChecked = false;
 			for(int i=0; i<2; i++){
 				if(startIndex[i] > 7 || startIndex[i] < 0 || finishIndex[i] > 7 || finishIndex[i] < 0){
 					cout << "Out of range" << endl;
@@ -367,6 +383,9 @@ class Game{
 								return false;	
 							}	
 							if(!P->getMovedOnceState()){
+								if(wouldBeInCheck(startIndex, finishIndex)){
+									return false;
+								}	
 								return true;
 							}
 							continue;
@@ -378,6 +397,9 @@ class Game{
 								return false;
 							}
 							else{
+								if(wouldBeInCheck(startIndex, finishIndex)){
+									return false;
+								}	
 								return true;	
 							}
 						}
@@ -386,6 +408,9 @@ class Game{
 							if(Board[finishIndex[0]][finishIndex[1]].getPieceInSquare() != nullptr){
 								return false;
 							}
+							if(wouldBeInCheck(startIndex, finishIndex)){
+								return false;
+							}	
 							return true;
 						}
 					}
@@ -437,8 +462,11 @@ class Game{
 							}
 						}
 					}
-					
+					if(wouldBeInCheck(startIndex, finishIndex)){
+						continue;
+					}
 					if(validRouteFound){
+
 						return true;
 					}
 				}
