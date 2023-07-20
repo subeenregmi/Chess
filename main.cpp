@@ -564,6 +564,28 @@ class Game{
 			}
 		}
 
+		void drawPromotionMenu(sf::RenderWindow* window, sf::Texture* TPieces, sf::Texture* TRectangle){
+
+			int multiplier = 0;
+			if(CurrentPlayer == 1){
+				multiplier = 1;
+			}
+			sf::Sprite sprite;
+			sprite.setTexture(*TRectangle);	
+			sprite.scale(sf::Vector2f(2.5f, 1.0f));
+			sprite.setPosition(sf::Vector2f(85.0f, 310.0f));
+			sprite.setColor(sf::Color(0, 0, 0, 64));
+			window->draw(sprite);
+			for(int i=1; i<5; i++){
+				sf::Sprite sp;
+				sp.setTexture(*TPieces);
+				sp.setTextureRect(sf::IntRect(133*i, 133*multiplier, 133, 133));
+				sp.setPosition(sf::Vector2f(150*i, 400.0f));
+				sp.scale(sf::Vector2f(1.05f, 1.05f));
+				window->draw(sp);
+			}
+		}
+
 		void drawPieces(sf::RenderWindow* window, sf::Texture* TBoard, sf::Texture* TPieces){
 			float  sf_S = 1.55f;
 			float  sf_P = 0.75f;
@@ -624,9 +646,9 @@ class Game{
 					if(Board[i][j].isSquareOccupied()){
 						if(Board[i][j].getPieceInSquare() != nullptr){
 							cout << "Removing " << Board[i][j].getPieceInSquare()->getType() << ", and its sprite" << endl;
-							delete Board[i][j].getPieceInSquare();
-							delete Board[i][j].getPieceInSquare()->getSprite();
 							Board[i][j].getPieceInSquare()->freeMoves();
+							delete Board[i][j].getPieceInSquare()->getSprite();
+							delete Board[i][j].getPieceInSquare();
 							count++;
 						}
 					}
@@ -641,51 +663,67 @@ int main()
 	Piece* PieceHeldDown = nullptr;
 	Square* SquareStart = nullptr;
 	Square* LastPiecePressed = nullptr;
+	Square* PromotionSquare = nullptr;
+	
 	int LastIndex[2] = {-1, -1};
 	int Index[2] = {0, 0};
 
+	bool promotionMenu = false;
+	bool promotionCapture = false;
+
 	sf::RenderWindow window(sf::VideoMode(800, 1080), "Chess");
 
-	sf::Texture ChessPiecesT;
 	sf::Texture BoardT;
+	sf::Texture ChessPiecesT;
 	sf::Texture CircleT;
+	sf::Texture RectangleT;
+
+	ChessPiecesT.loadFromFile("textures/chess_pieces.png");
+	BoardT.loadFromFile("textures/more.png");
+	CircleT.loadFromFile("textures/greycircle.png");
+	RectangleT.loadFromFile("textures/greyrectangle.png");
+
+	ChessPiecesT.setSmooth(true);
+	CircleT.setSmooth(true);
+	RectangleT.setSmooth(true);
 
 	sf::SoundBuffer ChessPieceMove;
 	sf::SoundBuffer ChessPieceCapture;
 	sf::SoundBuffer ChessCheck;
 	sf::SoundBuffer Checkmate;
+	sf::SoundBuffer Promotion;
 
 	sf::Sound pieceMoveSound;
 	sf::Sound pieceCaptureSound;
 	sf::Sound kingCheck;
 	sf::Sound checkMateSound;
-	
-	ChessPiecesT.loadFromFile("textures/chess_pieces.png");
-	BoardT.loadFromFile("textures/more.png");
-	CircleT.loadFromFile("textures/greycircle.png");
+	sf::Sound promotionSound; 
 
 	ChessPieceMove.loadFromFile("audio/move-self.wav");
 	ChessPieceCapture.loadFromFile("audio/capture.wav");
 	ChessCheck.loadFromFile("audio/move-check.wav");
 	Checkmate.loadFromFile("audio/checkmate.wav");
+	Promotion.loadFromFile("audio/promotion.wav");
 
 	pieceMoveSound.setBuffer(ChessPieceMove);
 	pieceCaptureSound.setBuffer(ChessPieceCapture);
 	kingCheck.setBuffer(ChessCheck);
 	checkMateSound.setBuffer(Checkmate);
+	promotionSound.setBuffer(Promotion);
 
 	Game G;
 	G.makeBoard();
 	while (window.isOpen()){
-
-		ChessPiecesT.setSmooth(true);
-		CircleT.setSmooth(true);
 
 		sf::Event event;
 
 		window.clear();
 
 		G.drawBoard(&window, &BoardT, &ChessPiecesT);
+
+		if(promotionMenu){
+			G.drawPromotionMenu(&window, &ChessPiecesT, &RectangleT);
+		}
 		
 		G.drawValidMoves(&window, &CircleT, LastPiecePressed, LastIndex);
 
@@ -695,6 +733,84 @@ int main()
 			
 			if(event.type == sf::Event::Closed){
 				window.close();
+			}
+
+			if(promotionMenu){
+
+				int ColourM = (G.getCurrentPlayer() + 1) % 2;
+				if(sf::Mouse::isButtonPressed(sf::Mouse::Left)){
+
+					int x = ((sf::Mouse::getPosition(window).x - 150) / 150 )  % 4;
+					Piece* P1 = PromotionSquare->getPieceInSquare();
+					P1->freeMoves();
+					delete P1->getSprite();
+					delete P1;
+
+					if(x == 0){
+						Piece* P = new Piece("queen", ColourM);		
+						
+						for(int i=-7; i<8; i++){
+							P->addMove(0, i);
+							P->addMove(i, 0);
+							P->addMove(i, i);
+							P->addMove(i, -i);
+							P->addMove(-i, i);
+						}
+						PromotionSquare->setPiece(P);
+					}
+
+					else if(x == 1){
+						Piece* P = new Piece("bishop", ColourM);		
+						
+						for(int i=-7; i<8; i++){
+							P->addMove(i, i);
+							P->addMove(i, -i);
+							P->addMove(-i, i);
+						}
+						PromotionSquare->setPiece(P);
+					}
+
+					else if(x == 2){
+						Piece* P = new Piece("knight", ColourM);		
+
+						P->addMove(2, 1);
+						P->addMove(2, -1);
+						P->addMove(1, 2);
+						P->addMove(1, -2);
+						P->addMove(-1, -2);
+						P->addMove(-2, 1);
+						P->addMove(-2, -1);
+						P->addMove(-1, 2);
+						
+						PromotionSquare->setPiece(P);
+					}
+
+					else if(x == 3){
+						Piece* P = new Piece("rook", ColourM);		
+
+						for(int i=-7; i<8; i++){
+							P->addMove(i, 0);
+							P->addMove(0, i);
+						}
+
+						PromotionSquare->setPiece(P);
+					}
+
+					if(G.isInCheckMate()){
+						checkMateSound.play();
+					}
+					else if(G.isInCheck()){
+						kingCheck.play();
+					}
+					else{
+						promotionSound.play();
+					}
+
+					PromotionSquare = nullptr;
+					promotionMenu = false;
+				}
+	
+				continue;
 			}
 
 			if(sf::Mouse::isButtonPressed(sf::Mouse::Left)){
@@ -769,18 +885,8 @@ int main()
 
 				bool capture = false;
 				if(S->getPieceInSquare() != nullptr){
-					/*
-					if(S->getPieceInSquare()->getColour() == PieceHeldDown->getColour()){
-						PieceHeldDown->getSprite()->setPosition(sf::Vector2f(117*(Index[0]/116) + 45, 117*(Index[1]/116) + 40));	
-						PieceHeldDown = nullptr;
-						SquareStart = nullptr;
-						Index[0] = 0;
-						Index[1] = 0;
-						cout << "Same color" << endl;
-						continue;
-					}
-					*/
 					cout << "Deleting, " << S->getPieceInSquare()->getType() << endl;
+					S->getPieceInSquare()->freeMoves();
 					delete S->getPieceInSquare()->getSprite();
 					delete S->getPieceInSquare();
 					capture = true;
@@ -790,7 +896,18 @@ int main()
 				PieceHeldDown->getSprite()->setPosition(sf::Vector2f(117*(x/116) + 45, 117*(y/116) + 40));	
 				S->setPiece(PieceHeldDown);
 				SquareStart->removePiece(); 
+				
+				//promotion 
+				
+				if(PieceHeldDown->getType() == "pawn"){
+					if(FinishIndex[1] == 0 || FinishIndex[1] == 7){
+						promotionMenu = true;
+						PromotionSquare = S;
+					}
+				}
+
 				G.incrimentCurrentPlayer();
+				
 				if(G.isInCheckMate()){
 					checkMateSound.play();
 				}
