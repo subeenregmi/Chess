@@ -204,6 +204,8 @@ class Game{
 					D->addMove(1, -1);
 					D->addMove(-1, 1);
 					D->addMove(-1, -1);
+					D->addMove(2, 0);
+					D->addMove(-2, 0);
 				}
 
 				Piece* Q = new Piece(blackPieces[i], false);
@@ -258,6 +260,8 @@ class Game{
 					Q->addMove(1, -1);
 					Q->addMove(-1, 1);
 					Q->addMove(-1, -1);
+					Q->addMove(-2, 0);
+					Q->addMove(2, 0);
 				}
 				Piece* R = new Piece("pawn", false);
 				Board[i][1].setPiece(R);
@@ -355,7 +359,6 @@ class Game{
 		bool isInCheckMate(){
 			bool white = false;
 			if(!isInCheck()){
-				cout << "R1" << endl;
 				return false;	
 			}
 			if(CurrentPlayer == 1){
@@ -380,7 +383,6 @@ class Game{
 								cout << startIndex[0] << startIndex[1] << endl;
 								cout << Board[startIndex[0]][startIndex[1]].getPieceInSquare()->getType() << endl;
 								cout << finishIndex[0] << finishIndex[1] << endl;
-								cout << "R2" << endl;
 								return false;
 							}
 						}
@@ -452,6 +454,49 @@ class Game{
 							}	
 							return true;
 						}
+					}
+					
+					// King Castling
+					if(Board[startIndex[0]][startIndex[1]].getPieceInSquare()->getType() == "king" && (M->rowChange == 2 || M->rowChange == -2)){
+						int CurrentIndex[2] = {startIndex[0], startIndex[1]};
+						int multiplier = M->rowChange / 2;
+						Piece* King = Board[startIndex[0]][startIndex[1]].getPieceInSquare();
+						Piece* Rook = nullptr;
+
+						if(isInCheck()){
+							return false;
+						}
+
+						if(King->getMovedOnceState() == true){
+							return false;
+						}
+
+						while(true){
+							CurrentIndex[0] += 1*multiplier;	
+							if(Board[CurrentIndex[0]][CurrentIndex[1]].getPieceInSquare() == nullptr){
+								continue;
+							}
+							if(Board[CurrentIndex[0]][CurrentIndex[1]].getPieceInSquare()->getType() == "rook"){
+								Rook = Board[CurrentIndex[0]][CurrentIndex[1]].getPieceInSquare();							
+								break;
+							}
+							else{
+								return false;
+							}
+						}
+						if(Rook->getMovedOnceState() == true){
+							return false;
+						}
+
+						CurrentIndex[0] = startIndex[0];
+						for(int i=0; i<2; i++){
+							CurrentIndex[0] += 1 * multiplier;
+							cout << CurrentIndex[0] << CurrentIndex[1] << endl;
+							if(wouldBeInCheck(startIndex, CurrentIndex)){
+								return false;
+							}
+						}
+						return true;
 					}
 
 					if(P->getType() == "knight"){
@@ -670,6 +715,7 @@ int main()
 
 	bool promotionMenu = false;
 	bool promotionCapture = false;
+	bool castled = false;
 
 	sf::RenderWindow window(sf::VideoMode(800, 1080), "Chess");
 
@@ -692,24 +738,28 @@ int main()
 	sf::SoundBuffer ChessCheck;
 	sf::SoundBuffer Checkmate;
 	sf::SoundBuffer Promotion;
+	sf::SoundBuffer Castling;
 
 	sf::Sound pieceMoveSound;
 	sf::Sound pieceCaptureSound;
 	sf::Sound kingCheck;
 	sf::Sound checkMateSound;
 	sf::Sound promotionSound; 
+	sf::Sound castledSound;
 
 	ChessPieceMove.loadFromFile("audio/move-self.wav");
 	ChessPieceCapture.loadFromFile("audio/capture.wav");
 	ChessCheck.loadFromFile("audio/move-check.wav");
 	Checkmate.loadFromFile("audio/checkmate.wav");
 	Promotion.loadFromFile("audio/promotion.wav");
+	Castling.loadFromFile("audio/castling.wav");
 
 	pieceMoveSound.setBuffer(ChessPieceMove);
 	pieceCaptureSound.setBuffer(ChessPieceCapture);
 	kingCheck.setBuffer(ChessCheck);
 	checkMateSound.setBuffer(Checkmate);
 	promotionSound.setBuffer(Promotion);
+	castledSound.setBuffer(Castling);
 
 	Game G;
 	G.makeBoard();
@@ -892,11 +942,33 @@ int main()
 					capture = true;
 					S->removePiece();
 				}
-
 				PieceHeldDown->getSprite()->setPosition(sf::Vector2f(117*(x/116) + 45, 117*(y/116) + 40));	
 				S->setPiece(PieceHeldDown);
 				SquareStart->removePiece(); 
-				
+
+				// castling
+				if(PieceHeldDown->getType() == "king"){
+					if(FinishIndex[0] - StartIndex[0] == 2 || FinishIndex[0] - StartIndex[0] == -2){
+						int CurrentIndex[2] = {StartIndex[0], StartIndex[1]};
+						int multiplier = (FinishIndex[0] - StartIndex[0]) / 2;
+						while(true){
+							CurrentIndex[0] += 1 * multiplier;
+							if(G.Board[CurrentIndex[0]][CurrentIndex[1]].getPieceInSquare() == nullptr){
+								continue;
+							}
+							if(G.Board[CurrentIndex[0]][CurrentIndex[1]].getPieceInSquare()->getType() == "rook"){
+								break;
+							}
+						}
+						Piece* Rook = G.Board[CurrentIndex[0]][CurrentIndex[1]].getPieceInSquare(); 
+						Rook->setMovedOnce();
+						G.Board[CurrentIndex[0]][CurrentIndex[1]].removePiece();
+						G.Board[StartIndex[0] + 1*multiplier][StartIndex[1]].setPiece(Rook);
+						Rook->getSprite()->setPosition(sf::Vector2f(117*(StartIndex[0] + 1*multiplier) + 45, 117*(StartIndex[1]) + 40));	
+						castled = true;
+					}
+				}
+
 				//promotion 
 				
 				if(PieceHeldDown->getType() == "pawn"){
@@ -917,10 +989,13 @@ int main()
 				else if(capture){
 					pieceCaptureSound.play();
 				}
+				else if(castled){
+					castledSound.play();		
+				}
 				else{
 					pieceMoveSound.play();	
 				}
-				if(PieceHeldDown->getType() == "pawn"){
+				if(PieceHeldDown->getType() == "pawn" || PieceHeldDown->getType() == "rook" || PieceHeldDown->getType() == "king"){
 					PieceHeldDown->setMovedOnce();
 				}
 
@@ -931,6 +1006,7 @@ int main()
 				LastPiecePressed = nullptr;
 				LastIndex[0] = -1;
 				LastIndex[1] = -1;
+				castled = false;
 			}
 		}
 	}
