@@ -286,7 +286,63 @@ class Game{
 			CurrentPlayer %= 2;
 		}
 
+		int findPiece(string type, int colour){
+			bool white = false;
+			if(colour == 1){
+				white = true;	
+			}
+			int position = -1;
+			for(int i=0; i<8; i++){
+				for(int j=0; j<8; j++){
+					if(Board[i][j].getPieceInSquare() == nullptr){
+						continue;
+					}
+					if(Board[i][j].getPieceInSquare()->getType() == type  && Board[i][j].getPieceInSquare()->getColour() == white){
+						position = i*10 + j;
+						return position;
+					}
+				}
+			}
+			return position;	
+		}
+
+		bool isInCheck(){
+			bool white = false;
+			if(CurrentPlayer == 1){
+				cout << "IS WHITE" << endl;
+				white = true;
+			}
+			else{
+				cout << "Is black" << endl;
+			}
+			if(findPiece("king", CurrentPlayer) == -1){
+				cout << "king is gone" << endl;
+				return false;
+			}
+			int EnemyKing[2] = {findPiece("king", CurrentPlayer) / 10, findPiece("king", CurrentPlayer) % 10};
+			for(int i=0; i<8; i++){
+				for(int j=0; j<8; j++){
+					int CurrentPos[2] = {i, j};
+					if(Board[i][j].getPieceInSquare() == nullptr){
+						continue;
+					}
+					if(Board[i][j].getPieceInSquare()->getColour() == white){
+						continue;
+					}
+					if(isValidMove(CurrentPos, EnemyKing, Board[i][j].getPieceInSquare())){
+						return true;
+					}
+				}
+			}
+			return false;
+		}
+
+		bool wouldBeInCheck(int startIndex[2], int finishIndex[2]){
+			return false;
+		}
+
 		bool isValidMove(int startIndex[2], int finishIndex[2], Piece* P){
+			bool isChecked = false;
 			for(int i=0; i<2; i++){
 				if(startIndex[i] > 7 || startIndex[i] < 0 || finishIndex[i] > 7 || finishIndex[i] < 0){
 					cout << "Out of range" << endl;
@@ -517,6 +573,7 @@ int main()
 	Square* LastPiecePressed = nullptr;
 	sf::SoundBuffer ChessPieceMove;
 	sf::SoundBuffer ChessPieceCapture;
+	sf::SoundBuffer ChessCheck;
 	int LastIndex[2] = {-1, -1};
 	int Index[2] = {0, 0};
 
@@ -526,17 +583,22 @@ int main()
 	sf::Texture CircleT;
 	sf::Sound pieceMoveSound;
 	sf::Sound pieceCaptureSound;
+	sf::Sound kingCheck;
+	
+	ChessPiecesT.loadFromFile("textures/chess_pieces.png");
+	BoardT.loadFromFile("textures/more.png");
+	CircleT.loadFromFile("textures/greycircle.png");
+
+	ChessPieceMove.loadFromFile("audio/move-self.wav");
+	ChessPieceCapture.loadFromFile("audio/capture.wav");
+	ChessCheck.loadFromFile("audio/move-check.wav");
+	pieceMoveSound.setBuffer(ChessPieceMove);
+	pieceCaptureSound.setBuffer(ChessPieceCapture);
+	kingCheck.setBuffer(ChessCheck);
 	Game G;
 	G.makeBoard();
 	while (window.isOpen()){
 
-		ChessPiecesT.loadFromFile("textures/chess_pieces.png");
-		BoardT.loadFromFile("textures/more.png");
-		CircleT.loadFromFile("textures/greycircle.png");
-		ChessPieceMove.loadFromFile("audio/chessmove.wav");
-		ChessPieceCapture.loadFromFile("audio/chesscapture.wav");
-		pieceMoveSound.setBuffer(ChessPieceMove);
-		pieceCaptureSound.setBuffer(ChessPieceCapture);
 		ChessPiecesT.setSmooth(true);
 		CircleT.setSmooth(true);
 
@@ -615,7 +677,6 @@ int main()
 
 				int StartIndex[2] = {Index[0]/116, Index[1]/116};
 				int FinishIndex[2] = {x/116, y/116};
-				
 
 				if(!G.isValidMove(StartIndex, FinishIndex, PieceHeldDown)){
 					cout << "Invalid Move" << endl;
@@ -646,7 +707,13 @@ int main()
 				}
 
 				PieceHeldDown->getSprite()->setPosition(sf::Vector2f(117*(x/116) + 45, 117*(y/116) + 40));	
-				if(capture){
+				S->setPiece(PieceHeldDown);
+				SquareStart->removePiece(); 
+				G.incrimentCurrentPlayer();
+				if(G.isInCheck()){
+					kingCheck.play();
+				}
+				else if(capture){
 					pieceCaptureSound.play();
 				}
 				else{
@@ -655,13 +722,10 @@ int main()
 				if(PieceHeldDown->getType() == "pawn"){
 					PieceHeldDown->setMovedOnce();
 				}
-				S->setPiece(PieceHeldDown);
-				SquareStart->removePiece(); 
 				PieceHeldDown = nullptr;
 				SquareStart = nullptr;
 				Index[0] = 0;
 				Index[1] = 0;
-				G.incrimentCurrentPlayer();
 				LastPiecePressed = nullptr;
 				LastIndex[0] = -1;
 				LastIndex[1] = -1;
