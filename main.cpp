@@ -353,9 +353,41 @@ class Game{
 		}
 
 		bool isInCheckMate(){
+			bool white = false;
 			if(!isInCheck()){
-				
+				cout << "R1" << endl;
+				return false;	
 			}
+			if(CurrentPlayer == 1){
+				white = true;
+			}
+			for(int i=0; i<8; i++){
+				for(int j=0; j<8; j++){
+					int startIndex[2] = {i, j};
+					if(Board[i][j].getPieceInSquare() == nullptr){
+						continue;
+					}
+					if(Board[i][j].getPieceInSquare()->getColour() != white){
+						continue;
+					}
+					for(int k=0; k<8; k++){
+						for(int h=0; h<8; h++){
+							int finishIndex[2] = {k, h};
+							if(!isValidMove(startIndex, finishIndex, Board[i][j].getPieceInSquare())){
+								continue;
+							}
+							if(!wouldBeInCheck(startIndex, finishIndex)){
+								cout << startIndex[0] << startIndex[1] << endl;
+								cout << Board[startIndex[0]][startIndex[1]].getPieceInSquare()->getType() << endl;
+								cout << finishIndex[0] << finishIndex[1] << endl;
+								cout << "R2" << endl;
+								return false;
+							}
+						}
+					}
+				}
+			}
+			return true;
 		}
 
 		bool isValidMove(int startIndex[2], int finishIndex[2], Piece* P){
@@ -365,6 +397,13 @@ class Game{
 					return false;
 				}
 			}
+			
+			if (Board[finishIndex[0]][finishIndex[1]].getPieceInSquare() != nullptr){
+				if(Board[startIndex[0]][startIndex[1]].getPieceInSquare()->getColour() == Board[finishIndex[0]][finishIndex[1]].getPieceInSquare()->getColour()){
+					return false;
+				}
+			}
+
 			for(int i=0; i<100; i++){
 				Move* M = P->possibleMoves[i];
 				if(M == nullptr){
@@ -416,6 +455,9 @@ class Game{
 					}
 
 					if(P->getType() == "knight"){
+						if(wouldBeInCheck(startIndex, finishIndex)){
+							return false;
+						}	
 						return true;
 					}
 
@@ -599,19 +641,24 @@ int main()
 	Piece* PieceHeldDown = nullptr;
 	Square* SquareStart = nullptr;
 	Square* LastPiecePressed = nullptr;
-	sf::SoundBuffer ChessPieceMove;
-	sf::SoundBuffer ChessPieceCapture;
-	sf::SoundBuffer ChessCheck;
 	int LastIndex[2] = {-1, -1};
 	int Index[2] = {0, 0};
 
 	sf::RenderWindow window(sf::VideoMode(800, 1080), "Chess");
+
 	sf::Texture ChessPiecesT;
 	sf::Texture BoardT;
 	sf::Texture CircleT;
+
+	sf::SoundBuffer ChessPieceMove;
+	sf::SoundBuffer ChessPieceCapture;
+	sf::SoundBuffer ChessCheck;
+	sf::SoundBuffer Checkmate;
+
 	sf::Sound pieceMoveSound;
 	sf::Sound pieceCaptureSound;
 	sf::Sound kingCheck;
+	sf::Sound checkMateSound;
 	
 	ChessPiecesT.loadFromFile("textures/chess_pieces.png");
 	BoardT.loadFromFile("textures/more.png");
@@ -620,9 +667,13 @@ int main()
 	ChessPieceMove.loadFromFile("audio/move-self.wav");
 	ChessPieceCapture.loadFromFile("audio/capture.wav");
 	ChessCheck.loadFromFile("audio/move-check.wav");
+	Checkmate.loadFromFile("audio/checkmate.wav");
+
 	pieceMoveSound.setBuffer(ChessPieceMove);
 	pieceCaptureSound.setBuffer(ChessPieceCapture);
 	kingCheck.setBuffer(ChessCheck);
+	checkMateSound.setBuffer(Checkmate);
+
 	Game G;
 	G.makeBoard();
 	while (window.isOpen()){
@@ -718,6 +769,7 @@ int main()
 
 				bool capture = false;
 				if(S->getPieceInSquare() != nullptr){
+					/*
 					if(S->getPieceInSquare()->getColour() == PieceHeldDown->getColour()){
 						PieceHeldDown->getSprite()->setPosition(sf::Vector2f(117*(Index[0]/116) + 45, 117*(Index[1]/116) + 40));	
 						PieceHeldDown = nullptr;
@@ -727,6 +779,7 @@ int main()
 						cout << "Same color" << endl;
 						continue;
 					}
+					*/
 					cout << "Deleting, " << S->getPieceInSquare()->getType() << endl;
 					delete S->getPieceInSquare()->getSprite();
 					delete S->getPieceInSquare();
@@ -738,7 +791,10 @@ int main()
 				S->setPiece(PieceHeldDown);
 				SquareStart->removePiece(); 
 				G.incrimentCurrentPlayer();
-				if(G.isInCheck()){
+				if(G.isInCheckMate()){
+					checkMateSound.play();
+				}
+				else if(G.isInCheck()){
 					kingCheck.play();
 				}
 				else if(capture){
@@ -750,6 +806,7 @@ int main()
 				if(PieceHeldDown->getType() == "pawn"){
 					PieceHeldDown->setMovedOnce();
 				}
+
 				PieceHeldDown = nullptr;
 				SquareStart = nullptr;
 				Index[0] = 0;
