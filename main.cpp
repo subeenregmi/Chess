@@ -1,6 +1,8 @@
 #include <SFML/Graphics.hpp>
 #include <SFML/Audio.hpp>
 #include <iostream>
+#include <cstdlib>
+#include <time.h>
 
 /*
  * make chess board
@@ -342,6 +344,12 @@ class Game{
 		}
 
 		bool wouldBeInCheck(int startIndex[2], int finishIndex[2]){
+			if(startIndex[0] > 7 || startIndex[0] < 0 || startIndex[1] > 7 || startIndex[1] < 0){
+				return true;
+			}
+			if(finishIndex[0] > 7 || finishIndex[0] < 0 || finishIndex[1] > 7 || finishIndex[1] < 0){
+				return true;
+			}
 			Piece* P1 = Board[startIndex[0]][startIndex[1]].getPieceInSquare();
 			Piece* P2 = Board[finishIndex[0]][finishIndex[1]].getPieceInSquare();
 
@@ -380,9 +388,36 @@ class Game{
 								continue;
 							}
 							if(!wouldBeInCheck(startIndex, finishIndex)){
-								cout << startIndex[0] << startIndex[1] << endl;
-								cout << Board[startIndex[0]][startIndex[1]].getPieceInSquare()->getType() << endl;
-								cout << finishIndex[0] << finishIndex[1] << endl;
+								return false;
+							}
+						}
+					}
+				}
+			}
+			return true;
+		}
+
+		bool isDraw(){
+			if(isInCheck()){
+				return false;
+			}
+			bool white = false;
+			if(CurrentPlayer == 1){
+				white = true;
+			}
+			for(int i=0; i<8; i++){
+				for(int j=0; j<8; j++){
+					int StartIndex[2] = {i, j};
+					if(Board[i][j].getPieceInSquare() == nullptr){
+						continue;
+					}
+					if(Board[i][j].getPieceInSquare()->getColour() != white){
+						continue;
+					}
+					for(int k=0; k<8; k++){
+						for(int h=0; h<8; h++){
+							int FinishIndex[2] = {k, h};
+							if(isValidMove(StartIndex, FinishIndex, Board[i][j].getPieceInSquare())){
 								return false;
 							}
 						}
@@ -395,9 +430,16 @@ class Game{
 		bool isValidMove(int startIndex[2], int finishIndex[2], Piece* P){
 			for(int i=0; i<2; i++){
 				if(startIndex[i] > 7 || startIndex[i] < 0 || finishIndex[i] > 7 || finishIndex[i] < 0){
-					cout << "Out of range" << endl;
 					return false;
 				}
+			}
+			
+			if(P == nullptr){
+				return false;
+			}
+
+			if(Board[startIndex[0]][startIndex[1]].getPieceInSquare() == nullptr){
+				return false;
 			}
 			
 			if (Board[finishIndex[0]][finishIndex[1]].getPieceInSquare() != nullptr){
@@ -405,6 +447,7 @@ class Game{
 					return false;
 				}
 			}
+
 
 			for(int i=0; i<100; i++){
 				Move* M = P->possibleMoves[i];
@@ -422,7 +465,7 @@ class Game{
 							}
 							if(Board[finishIndex[0]][finishIndex[1] - M->columnChange/2].getPieceInSquare() != nullptr){
 								return false;	
-							}	
+							}
 							if(!P->getMovedOnceState()){
 								if(wouldBeInCheck(startIndex, finishIndex)){
 									return false;
@@ -455,14 +498,13 @@ class Game{
 							return true;
 						}
 					}
-					
 					// King Castling
 					if(Board[startIndex[0]][startIndex[1]].getPieceInSquare()->getType() == "king" && (M->rowChange == 2 || M->rowChange == -2)){
 						int CurrentIndex[2] = {startIndex[0], startIndex[1]};
 						int multiplier = M->rowChange / 2;
-						Piece* King = Board[startIndex[0]][startIndex[1]].getPieceInSquare();
-						Piece* Rook = nullptr;
-
+						Piece* King = Board[findPiece("king", CurrentPlayer)/10][findPiece("king", CurrentPlayer) % 10].getPieceInSquare();
+						Piece* Rook;
+						
 						if(isInCheck()){
 							return false;
 						}
@@ -473,6 +515,9 @@ class Game{
 
 						while(true){
 							CurrentIndex[0] += 1*multiplier;	
+							if(CurrentIndex[0] > 7 || CurrentIndex[0] < 0){
+								return false;
+							}
 							if(Board[CurrentIndex[0]][CurrentIndex[1]].getPieceInSquare() == nullptr){
 								continue;
 							}
@@ -484,6 +529,7 @@ class Game{
 								return false;
 							}
 						}
+
 						if(Rook->getMovedOnceState() == true){
 							return false;
 						}
@@ -491,7 +537,6 @@ class Game{
 						CurrentIndex[0] = startIndex[0];
 						for(int i=0; i<2; i++){
 							CurrentIndex[0] += 1 * multiplier;
-							cout << CurrentIndex[0] << CurrentIndex[1] << endl;
 							if(wouldBeInCheck(startIndex, CurrentIndex)){
 								return false;
 							}
@@ -552,8 +597,8 @@ class Game{
 					if(wouldBeInCheck(startIndex, finishIndex)){
 						continue;
 					}
-					if(validRouteFound){
 
+					if(validRouteFound){
 						return true;
 					}
 				}
@@ -774,7 +819,8 @@ int main()
 		if(promotionMenu){
 			G.drawPromotionMenu(&window, &ChessPiecesT, &RectangleT);
 		}
-		
+
+	
 		G.drawValidMoves(&window, &CircleT, LastPiecePressed, LastIndex);
 
 		window.display();
@@ -892,6 +938,57 @@ int main()
 					PieceHeldDown->getSprite()->setPosition(sf::Vector2f(x, y));
 				}
 			}
+			
+			if(sf::Keyboard::isKeyPressed(sf::Keyboard::Key::R)){
+				srand(time(0));
+				bool white = false;
+				int row1;
+				int col1;
+				int row2;
+				int col2;
+				int attempts = 0;
+				if(G.getCurrentPlayer() == 1){
+					white = true;
+				}
+				while(true){
+					row1 = rand()%8;
+					col1 = rand()%8;
+					int Start[2] = {row1, col1};
+					if(G.Board[row1][col1].getPieceInSquare() == nullptr){
+						continue;
+					}
+					if(G.Board[row1][col1].getPieceInSquare()->getColour() != white){
+						continue;
+					}  
+					while(attempts < 100){
+						row2 = rand()%8;
+						col2 = rand()%8;
+						int Finish[2] = {row2, col2};
+						if(!G.isValidMove(Start, Finish, G.Board[row1][col1].getPieceInSquare())){
+							attempts++;
+							continue;
+						}
+						else{
+							Piece* remove = G.Board[Finish[0]][Finish[1]].getPieceInSquare();
+							if(remove != nullptr){
+								remove->freeMoves();
+								delete remove->getSprite();
+								delete remove;
+							}
+							G.Board[Finish[0]][Finish[1]].setPiece(G.Board[row1][col1].getPieceInSquare());
+							G.Board[row1][col1].removePiece();
+							G.Board[Finish[0]][Finish[1]].getPieceInSquare()->getSprite()->setPosition(sf::Vector2f(117*Finish[0] + 45, 117*Finish[1] + 40));
+
+							if(G.Board[Finish[0]][Finish[1]].getPieceInSquare()->getType() == "rook" || G.Board[Finish[0]][Finish[1]].getPieceInSquare()->getType() == "king" || G.Board[Finish[0]][Finish[1]].getPieceInSquare()->getType() == "pawn"){
+								G.Board[Finish[0]][Finish[1]].getPieceInSquare()->setMovedOnce();
+							}
+
+							G.incrimentCurrentPlayer();
+						}
+					}
+					break;
+				}
+			}
 
 			if(event.type == sf::Event::MouseButtonReleased){
 				int x = sf::Mouse::getPosition(window).x;
@@ -924,7 +1021,6 @@ int main()
 				int FinishIndex[2] = {x/116, y/116};
 
 				if(!G.isValidMove(StartIndex, FinishIndex, PieceHeldDown)){
-					cout << "Invalid Move" << endl;
 					PieceHeldDown->getSprite()->setPosition(sf::Vector2f(117*(Index[0]/116) + 45, 117*(Index[1]/116) + 40));	
 					PieceHeldDown = nullptr;
 					SquareStart = nullptr;
@@ -935,7 +1031,6 @@ int main()
 
 				bool capture = false;
 				if(S->getPieceInSquare() != nullptr){
-					cout << "Deleting, " << S->getPieceInSquare()->getType() << endl;
 					S->getPieceInSquare()->freeMoves();
 					delete S->getPieceInSquare()->getSprite();
 					delete S->getPieceInSquare();
@@ -979,6 +1074,10 @@ int main()
 				}
 
 				G.incrimentCurrentPlayer();
+
+				if(G.isDraw()){
+					cout << "Draw" << endl;
+				}
 				
 				if(G.isInCheckMate()){
 					checkMateSound.play();
